@@ -44,19 +44,19 @@ function dateIndex(date) {
 }
 
 function makeBody({query, t0, t1, from, size, index}) {
-  let first = {"index":index ,"ignore_unavailable":true}
+  let first = {index, ignore_unavailable: true}
   let second = {
     version: true,
     from,
     size,
-    sort: [{"@timestamp":{"order":"desc","unmapped_type":"boolean"}}],
-    query: {"bool":{"must":[{"query_string":{query,"analyze_wildcard":true}},{"range":{"@timestamp":{"gte":t0,"lte":t1}}}],"must_not":[]}},
-    "_source":{"excludes":[]},
-    "aggs":{},
-    "stored_fields":["*"],
-    "script_fields":{},
-    "docvalue_fields":["@timestamp"],
-    "highlight":{},
+    sort: [{"@timestamp": {order: "desc", unmapped_type: "boolean"}}],
+    query: {bool: {must: [{"query_string": {query,analyze_wildcard:true}}, {range:{"@timestamp": {gte:t0,lte:t1}}}], must_not: []}},
+    _source: {excludes: []},
+    aggs: {},
+    stored_fields: ["*"],
+    script_fields: {},
+    docvalue_fields: ["@timestamp"],
+    highlight: {},
   }
 
   return JSON.stringify(first) + '\n' + JSON.stringify(second) + '\n'
@@ -90,9 +90,7 @@ function logzq({token, debug}) {
     let total = size
     let ret = []
 
-    for (let from = 0; from < total && from + size <= hard_cap; from+=size) {
-      debug && console.error('[INFO] t0: %d, t1: %d, from: %d, total: %d', t0, t1, from, total)
-
+    for (let from = 0; from < total; from+=size) {
       let body = makeBody({query, t0, t1, from, size, index})
 
       let x = await doRequest(options, body)
@@ -104,17 +102,17 @@ function logzq({token, debug}) {
 
       total = res.hits.total
       if (total > hard_cap) {
-        debug && console.error('[WARN] total (%d) > hard cap', total)
+        debug && console.error('[INFO] total (%d) > hard cap; spliting timestep', total)
         let mid = Math.floor(t0 + (t1 - t0) / 2)
 
-        let first = await doStep({query, t0, t1: mid, index, options})
-        ret.push(...first)
-        let second = await doStep({query, t0: mid + 1, t1, index, options})
-        ret.push(...second)
-        break
+        let ret = await doStep({query, t0, t1: mid, index, options})
+        let rest = await doStep({query, t0: mid + 1, t1, index, options})
+        ret.push(...rest)
+        return ret
       }
 
       let xs = parseMessages(res)
+      debug && console.error('[INFO] t0: %d, t1: %d, completed: %d/%d', t0, t1, from + xs.length, total)
       ret.push(...xs)
     }
 
