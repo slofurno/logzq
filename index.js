@@ -1,24 +1,38 @@
 const https = require('https')
 const zlib = require('zlib')
+const dns = require('dns')
 
 let hour = 1000 * 60 * 60
 let defaultTimestep = hour * 12
+const hostname = 'app.logz.io'
 
 function makeOptions(token) {
-  let headers = {
-    'accept-encoding' : 'gzip',
-    'kbn-version':  '5.5.3',
-    'content-type': 'application/x-ndjson',
-    'accept': 'application/json, text/plain, */*',
-    'x-auth-token': token,
-  }
+  return new Promise((resolve, reject) => {
+    const options = {
+      family: 4,
+    }
 
-  return {
-    method: 'POST',
-    headers,
-    hostname: 'app.logz.io',
-    path: '/kibana/elasticsearch/_msearch',
-  }
+    dns.lookup(hostname, options, (err, address, family) => {
+      console.log(err, address, family)
+      if (err) { return reject(err) }
+
+      let headers = {
+        'accept-encoding' : 'gzip',
+        'kbn-version':  '5.5.3',
+        'content-type': 'application/x-ndjson',
+        'accept': 'application/json, text/plain, */*',
+        'x-auth-token': token,
+        'host': hostname,
+      }
+
+      resolve({
+        method: 'POST',
+        headers,
+        hostname: address,
+        path: '/kibana/elasticsearch/_msearch',
+      })
+    })
+  })
 }
 
 function dateIndex(date) {
@@ -49,9 +63,9 @@ function makeBody({query, t0, t1, from, size, index}) {
 }
 
 function logzq({token, debug}) {
-  const options = makeOptions(token)
-
   async function query({query, start, end, timestep = defaultTimestep}) {
+
+    const options = await makeOptions(token)
     const index = function() {
       let ret = []
       for(let t = start; t <= end; t += hour * 24) {
@@ -64,13 +78,13 @@ function logzq({token, debug}) {
 
     for(let t0 = start; t0 < end; t0 += timestep) {
       let t1 = t0 + timestep
-      let xs = await doStep({query, t0, t1, index})
+      let xs = await doStep({query, t0, t1, index, options})
       ret.push(...xs)
     }
     return ret
   }
 
-  async function doStep({query, t0, t1, index}) {
+  async function doStep({query, t0, t1, index, options}) {
     let size = 500
     let hard_cap = 10000
     let total = size
@@ -93,9 +107,9 @@ function logzq({token, debug}) {
         debug && console.error('[WARN] total (%d) > hard cap', total)
         let mid = Math.floor(t0 + (t1 - t0) / 2)
 
-        let first = await doStep({query, t0, t1: mid, index})
+        let first = await doStep({query, t0, t1: mid, index, options})
         ret.push(...first)
-        let second = await doStep({query, t0: mid + 1, t1, index})
+        let second = await doStep({query, t0: mid + 1, t1, index, options})
         ret.push(...second)
         break
       }
