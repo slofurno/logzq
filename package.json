@@ -1,0 +1,22 @@
+{
+  "name": "@slofurno/logzq",
+  "version": "1.0.0",
+  "description": "logz query",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slofurno/logzq.git"
+  },
+  "keywords": [
+    "logz"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/slofurno/logzq/issues"
+  },
+  "homepage": "https://github.com/slofurno/logzq#readme"
+}
