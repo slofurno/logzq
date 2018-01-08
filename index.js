@@ -2,8 +2,8 @@ const https = require('https')
 const zlib = require('zlib')
 const dns = require('dns')
 
-let hour = 1000 * 60 * 60
-let defaultTimestep = hour * 12
+const hour = 1000 * 60 * 60
+const defaultTimestep = hour * 12
 const hostname = 'app.logz.io'
 
 function makeOptions(token) {
@@ -13,7 +13,6 @@ function makeOptions(token) {
     }
 
     dns.lookup(hostname, options, (err, address, family) => {
-      console.log(err, address, family)
       if (err) { return reject(err) }
 
       let headers = {

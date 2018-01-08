@@ -1,6 +1,6 @@
 {
   "name": "@slofurno/logzq",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "logz query",
   "main": "index.js",
   "scripts": {
