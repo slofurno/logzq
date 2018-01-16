@@ -43,13 +43,20 @@ function dateIndex(date) {
 }
 
 function makeBody({query, t0, t1, from, size, index}) {
+  let must = [{range:{"@timestamp": {gte:t0,lte:t1}}}]
+  if (query == "") {
+    must.push({"match_all":{}})
+  } else {
+    must.push({"query_string": {query,analyze_wildcard:true}})
+  }
+
   let first = {index, ignore_unavailable: true}
   let second = {
     version: true,
     from,
     size,
     sort: [{"@timestamp": {order: "desc", unmapped_type: "boolean"}}],
-    query: {bool: {must: [{"query_string": {query,analyze_wildcard:true}}, {range:{"@timestamp": {gte:t0,lte:t1}}}], must_not: []}},
+    query: {bool: { must, must_not: []}},
     _source: {excludes: []},
     aggs: {},
     stored_fields: ["*"],
@@ -62,7 +69,7 @@ function makeBody({query, t0, t1, from, size, index}) {
 }
 
 function logzq({token, debug}) {
-  async function query({query, start, end, timestep = defaultTimestep}) {
+  async function query({query, start, end, timestep = defaultTimestep, fn}) {
 
     const options = await makeOptions(token)
     const index = function() {
@@ -73,13 +80,19 @@ function logzq({token, debug}) {
       return ret
     }()
 
-    let ret = []
+    const hasFunc = (typeof fn === 'function')
+    let ret = hasFunc ? true : []
 
     for(let t0 = start; t0 < end; t0 += timestep) {
       let t1 = t0 + timestep
       let xs = await doStep({query, t0, t1, index, options})
-      ret.push(...xs)
+      if (hasFunc) {
+        fn(xs)
+      } else {
+        ret.push(...xs)
+      }
     }
+
     return ret
   }
 
