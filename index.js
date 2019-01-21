@@ -6,7 +6,7 @@ const hour = 1000 * 60 * 60
 const defaultTimestep = hour * 12
 const hostname = 'app.logz.io'
 
-function makeOptions(token) {
+function makeOptions(token, kabana) {
   return new Promise((resolve, reject) => {
     const options = {
       family: 4,
@@ -22,6 +22,7 @@ function makeOptions(token) {
         'accept': 'application/json, text/plain, */*',
         'x-auth-token': token,
         'host': hostname,
+        'kbn-version': kabana,
       }
 
       resolve({
@@ -68,10 +69,12 @@ function makeBody({query, t0, t1, from, size, index}) {
   return JSON.stringify(first) + '\n' + JSON.stringify(second) + '\n'
 }
 
-function logzq({token, debug}) {
+function logzq({token, debug, kabana}) {
+  let kbnv = kabana || '6.3.2'
+
   async function query({query, start, end, timestep = defaultTimestep, fn}) {
 
-    const options = await makeOptions(token)
+    const options = await makeOptions(token, kbnv)
     const index = function() {
       let ret = []
       for(let t = start; t <= end; t += hour * 24) {
@@ -141,12 +144,12 @@ function logzq({token, debug}) {
 function doRequest(options, body) {
   return new Promise((resolve, reject) => {
     let req = https.request(options, res => {
-      if (res.statusCode !== 200) {
-        return reject(res.statusCode)
+      let output;
+      if (res.statusCode === 200) {
+        output = res.pipe(zlib.createGunzip())
+      } else {
+        output = res
       }
-
-      let output = res.pipe(zlib.createGunzip())
-
 
       let chunks = []
       output.on('data', chunk => {
@@ -154,7 +157,11 @@ function doRequest(options, body) {
       })
 
       output.on('end', () => {
-        resolve(JSON.parse(chunks.join('')))
+        if (res.statusCode === 200) {
+          resolve(JSON.parse(chunks.join('')))
+        } else {
+          reject({statusCode: res.statusCode, body: chunks.join('')})
+        }
       })
     })
 
